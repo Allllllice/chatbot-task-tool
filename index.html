@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任務排程計算器</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #e0f2f7; /* 淺灰藍色 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            display: flex;
+            width: 80%;
+            max-width: 960px;
+        }
+        .left-panel, .right-panel {
+            flex: 1;
+            padding: 20px;
+        }
+        .divider {
+            border-left: 1px solid #ccc;
+            margin: 0 20px;
+        }
+        h1 {
+            color: #0d47a1; /* 深藍色標題 */
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="number"],
+        input[type="date"] {
+            width: calc(100% - 16px);
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #0d47a1;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1976d2;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .results p {
+            margin-bottom: 10px;
+        }
+        .results strong {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h1><strong>任務排程計算器</strong></h1>
+            <label for="taskName">任務名稱：</label>
+            <input type="text" id="taskName">
+
+            <label for="totalCount">總計個數：</label>
+            <input type="number" id="totalCount" min="0">
+
+            <label for="validRatio">Valid 比例%：</label>
+            <input type="number" id="validRatio" min="0" max="100">
+
+            <label for="taggerCount">Tagger 人數：</label>
+            <input type="number" id="taggerCount" min="1">
+
+            <label for="validatorCount">Validator 人數：</label>
+            <input type="number" id="validatorCount" min="1">
+
+            <label for="taggerStartDate">Tagger 開始日期：</label>
+            <input type="date" id="taggerStartDate">
+
+            <label for="validatorStartDate">Validator 開始日期：</label>
+            <input type="date" id="validatorStartDate">
+
+            <label for="taggerDailyCapacity">Tagger 每日單人產能：</label>
+            <input type="number" id="taggerDailyCapacity" min="1">
+
+            <label for="validatorDailyCapacity">Validator 每日單人產能：</label>
+            <input type="number" id="validatorDailyCapacity" min="1">
+
+            <label for="batchSize">每個Batch數量：</label>
+            <input type="number" id="batchSize" min="1">
+
+            <button onclick="calculateSchedule()">計算</button>
+        </div>
+        <div class="divider"></div>
+        <div class="right-panel">
+            <h2>左側計算結果</h2>
+            <div class="results">
+                <p><strong>任務名稱：</strong> <span id="resultTaskName"></span></p>
+                <p><strong>Tagger 需作業天數：</strong> <span id="resultTaggerDays"></span> 天</p>
+                <p><strong>Tagger 預計完成日：</strong> <span id="resultTaggerEndDate"></span></p>
+                <p><strong>Validator 需作業天數：</strong> <span id="resultValidatorDays"></span> 天</p>
+                <p><strong>Validator 預計完成日：</strong> <span id="resultValidatorEndDate"></span></p>
+                <p><strong>要開幾個Batch：</strong> <span id="resultBatchCount"></span> 個</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function calculateSchedule() {
+            // 取得輸入值
+            const taskName = document.getElementById("taskName").value;
+            const totalCount = parseFloat(document.getElementById("totalCount").value);
+            const validRatio = parseFloat(document.getElementById("validRatio").value) / 100;
+            const taggerCount = parseInt(document.getElementById("taggerCount").value);
+            const validatorCount = parseInt(document.getElementById("validatorCount").value);
+            const taggerStartDate = new Date(document.getElementById("taggerStartDate").value);
+            const validatorStartDate = new Date(document.getElementById("validatorStartDate").value);
+            const taggerDailyCapacity = parseFloat(document.getElementById("taggerDailyCapacity").value);
+            const validatorDailyCapacity = parseFloat(document.getElementById("validatorDailyCapacity").value);
+            const batchSize = parseInt(document.getElementById("batchSize").value);
+
+            // 計算 Tagger 需作業天數 (不含假日)
+            let taggerWorkingDays = totalCount / (taggerCount * taggerDailyCapacity);
+            let taggerEndDate = new Date(taggerStartDate);
+            let taggerDaysCounter = 0;
+            let taggerTotalDays = 0;
+            while (taggerDaysCounter < Math.ceil(taggerWorkingDays)) {
+                const dayOfWeek = taggerEndDate.getDay(); // 0: Sunday, 6: Saturday
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    taggerDaysCounter++;
+                }
+                taggerEndDate.setDate(taggerEndDate.getDate() + 1);
+                taggerTotalDays++;
+            }
+            taggerEndDate.setDate(taggerEndDate.getDate() - 1); // 回到實際完成日
+
+            // 計算 Validator 需作業天數 (不含假日)
+            let validatorWorkingDays = (totalCount * validRatio) / (validatorCount * validatorDailyCapacity);
+            let validatorEndDate = new Date(validatorStartDate);
+            let validatorDaysCounter = 0;
+            let validatorTotalDays = 0;
+            while (validatorDaysCounter < Math.ceil(validatorWorkingDays)) {
+                const dayOfWeek = validatorEndDate.getDay(); // 0: Sunday, 6: Saturday
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    validatorDaysCounter++;
+                }
+                validatorEndDate.setDate(validatorEndDate.getDate() + 1);
+                validatorTotalDays++;
+            }
+            validatorEndDate.setDate(validatorEndDate.getDate() - 1); // 回到實際完成日
+
+            // 計算要開幾個 Batch
+            const batchCount = Math.ceil(totalCount / batchSize);
+
+            // 顯示計算結果
+            document.getElementById("resultTaskName").textContent = taskName;
+            document.getElementById("resultTaggerDays").textContent = Math.ceil(taggerWorkingDays);
+            document.getElementById("resultTaggerEndDate").textContent = formatDate(taggerEndDate);
+            document.getElementById("resultValidatorDays").textContent = Math.ceil(validatorWorkingDays);
+            document.getElementById("resultValidatorEndDate").textContent = formatDate(validatorEndDate);
+            document.getElementById("resultBatchCount").textContent = batchCount;
+        }
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+    </script>
+</body>
+</html>
